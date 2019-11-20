@@ -1,0 +1,134 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Exchange Rate App</title>
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Bootstrap ve Jquery -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.min.js"></script>
+
+    <style>
+        .custom-button {
+            margin-top: 25px;
+            margin-left: 25px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Exchange Rate App</h1>
+        <br /><br />      
+        <div class="row">
+            <form>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label>Başlangıç tarihi</label>
+                        <input type="date" class="form-control" name="start_date" id="start_date" min="2000-01-01" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label>Bitiş tarihi</label>
+                        <input type="date" class="form-control" name="end_date" id="end_date" min="2000-01-01" />
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary custom-button" onclick="send()">Göster</button>
+                <button type="button" class="btn btn-secondary custom-button" onclick="excelExport()">Excel'e Aktar</button>
+            </form>
+        </div>
+        @if(ViewBag.Message != null)
+        {
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="alert alert-warning" role="alert">
+                        @ViewBag.Message
+                    </div>
+                </div>
+            </div>
+        }
+        <div class="row">
+            <div class="col-md-6">
+                <div id="chart-div">
+                    <canvas id="chart" width="400" height="400"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sayfa ilk çalıştırıldığında başlangıç ve bitiş tarihinin max değerini bugünün tarihine eşitliyoruz.
+        $(document).ready(function () {
+            var today = new Date();
+            var dd = String(today.getDate()).padStart(2, '0');
+            var mm = String(today.getMonth() + 1).padStart(2, '0');
+            var yyyy = today.getFullYear();
+            today = yyyy + '-' + mm + '-' + dd;
+
+            $('#start_date').attr("max", today);
+            $('#end_date').attr("max", today);
+        });
+
+        function send() {
+            var start_date = document.getElementById("start_date").value;
+            var end_date = document.getElementById("end_date").value;
+            if (start_date == "" || end_date == "") {
+                alert("Başlangıç ve bitiş tarihi boş olamaz.");
+            } else if (start_date > end_date) {
+                alert("Bitiş tarihi başlangıç tarihinden küçük olamaz.");
+            } else {
+                var requestData = {
+                    start_date,
+                    end_date
+                };
+                $.ajax({
+                    type: "POST",
+                    url: "@Url.Action("Index", "Home")",
+                    data: JSON.stringify(requestData),
+                    dataType: "json",
+                    contentType: "application/json; charset=utf-8",
+                    success: function (data) {
+                        $("#chart").remove();
+                        $("#chart-div").append('<canvas id="chart" width="400" height="400"></canvas>');
+                        var canvas = document.getElementById('chart');
+                        var ctx = canvas.getContext('2d');
+                        var chart = new Chart(ctx, {
+                            type: 'line',
+                            data: data,
+                            options: {}
+                        });
+                    },
+                    error: function (error) {
+                        alert(error.responseText);
+                    }
+                });
+            }
+        }
+
+        function excelExport() {
+            // Excel çıktısı almadan önce chart üzerinde veri olup olmadığını kontrol ediyoruz.
+            const blank = isCanvasBlank(document.getElementById('chart'));
+            if (blank) {
+                alert('Lütfen önce tarihleri seçip Göster butonuna basınız.');
+            } else {
+                var url = '@Url.Action("ExportToExcel", "Home")';
+                window.open(url);
+            }
+        }
+
+        function isCanvasBlank(canvas) {
+            const context = canvas.getContext('2d');
+            const pixelBuffer = new Uint32Array(
+                context.getImageData(0, 0, canvas.width, canvas.height).data.buffer
+            );
+            return !pixelBuffer.some(color => color !== 0);
+        }
+    </script>
+</body>
+</html>
